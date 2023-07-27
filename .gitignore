@@ -1,0 +1,12 @@
+/.idea
+/drivers
+/old
+
+# Input
+ProductsIn.txt
+Products.csv
+
+# Output
+WarrantyInfo.csv
+HP-FailedProducts.csv
+Dell-FailedProducts.csv
