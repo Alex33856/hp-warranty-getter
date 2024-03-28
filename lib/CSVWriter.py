@@ -8,9 +8,9 @@ if __name__ == "__main__":
 
     csvRows = []
     for sN in rows:
-        # deviceType = "Dell"
-        # if "5CD" in sN:
-        deviceType = "HP"
+        deviceType = "Dell"
+        if "5CD" in sN:
+            deviceType = "HP"
         csvRows.append([deviceType, sN.strip(), ""])
     print(csvRows)
 

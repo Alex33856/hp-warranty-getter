@@ -1,24 +1,27 @@
 from dataclasses import dataclass
 from time import sleep
+from urllib.parse import parse_qs
 
-from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 
 from lib.SeleniumHelper import clickElement, inputText
+from providers.WarrantyProvider import WarrantyProvider
 
 
-@dataclass
-class HPWarrantyProvider:
-    driver: WebDriver
-
+@dataclass(slots=True)
+class HPWarrantyProvider(WarrantyProvider):
     # Constants
     MaxCapacity: int = 15
     URL: str = "https://support.hp.com/us-en/checkwarranty/multipleproducts"
+    SINGLE_URL: str = "https://support.hp.com/us-en/checkwarranty"
 
-    def openPage(self) -> None:
-        self.driver.get(self.URL)
+    def openPage(self, isMultiple: bool = False) -> None:
+        if isMultiple:
+            self.driver.get(self.URL)
+        else:
+            self.driver.get(self.SINGLE_URL)
 
-    def submitEntry(self, previousFailure: bool) -> None:
+    def submitEntry(self, previousFailure: bool = False) -> None:
         if previousFailure:
             elementName = "FindMyProductNumber"
         else:
@@ -53,8 +56,7 @@ class HPWarrantyProvider:
             pass
 
         if len(failureList) > 0:
-            print("Failed on: ")
-            print(failureList)
+            print(f"Failed on: {failureList}")
 
         return needToResubmit, failureList
 
@@ -68,27 +70,46 @@ class HPWarrantyProvider:
             self.submitEntry(True)
             sleep(10)
 
-        elements = self.driver.find_elements(By.CLASS_NAME, 'product-warranty')
+        isSingle = len(products) == 1
+
+        if not isSingle:
+            elements = self.driver.find_elements(By.CLASS_NAME, 'view-details-btn')
+            originalTab = self.driver.current_window_handle
+        else:
+            elements = [""]
+
         for elem in elements:
-            serial = elem.find_element(By.CLASS_NAME, "serial-no")
-            serialNumber = serial.find_element(By.TAG_NAME, "span").get_attribute("innerText")
+            if not isSingle:
+                url = elem.get_attribute("href")
+                self.driver.switch_to.new_window('tab')
+                self.driver.get(url)
+            sleep(5)
 
-            product = elem.find_element(By.CLASS_NAME, "product-no")
-            productNumber = product.find_element(By.TAG_NAME, "span").get_attribute("innerText")
+            urlParams = parse_qs(self.driver.current_url.split("?")[1])
+            serialNumber = urlParams["serialnumber"][0]
+            productNumber = urlParams["sku"][0]
 
-            expireDate = elem.find_element(By.CLASS_NAME, "expiry-date")
-            expireDate = expireDate.get_attribute("innerText")
-            expireDate = expireDate.split("End date:")[1].strip()
+            expireDate = None
+            for label in self.driver.find_elements(By.CLASS_NAME, "label"):
+                if label.text == "End date":
+                    expireDate = label.find_element(By.XPATH, "..").find_element(By.CLASS_NAME, "text").text
+
+            if not expireDate:
+                failList.append(serialNumber)
+                continue
 
             successList.append("{},{},{}\n".format(serialNumber, productNumber, expireDate))
+            if not isSingle:
+                self.driver.close()
+                self.driver.switch_to.window(originalTab)
 
         return successList, failList
 
     def addSerialNumbersToPage(self, products: dict[str, str]):
         self.openPage()
+        sleep(5)
 
-        index = 0
-        for serialNumber in products:
+        for index, serialNumber in enumerate(products):
             indexString = ""
             if index > 0:
                 indexString = str(index)
@@ -100,6 +121,3 @@ class HPWarrantyProvider:
 
             serialElement = self.driver.find_element(By.ID, "inputtextpfinder" + indexString)
             inputText(serialElement, serialNumber)
-
-            index += 1
-

@@ -1,20 +1,21 @@
 from selenium.webdriver import Chrome
+from selenium.webdriver.chrome.service import Service as ChromeService
+from webdriver_manager.chrome import ChromeDriverManager
 
+from providers.DellWarrantyProvider import DellWarrantyProvider
 from providers.HPWarrantyProvider import HPWarrantyProvider
-
-# from providers.DellWarrantyProvider import DellWarrantyProvider
+from providers.WarrantyProvider import WarrantyProvider
 
 DoneList = []
-# DellProductDict = {}
 
 ProviderType = {
     "HP": HPWarrantyProvider,
-    # "Dell": DellWarrantyProvider
+    "Dell": DellWarrantyProvider
 }
 
 ProviderList = {
     "HP": {},
-    # "Dell": {}
+    "Dell": {}
 }
 
 
@@ -40,11 +41,9 @@ def WriteCSV(fileName: str, toWrite: list[str]):
 
 
 def SetupDriver() -> Chrome:
-    # driverManager = ChromeDriverManager(path="./drivers")
-    # driverPath = driverManager.install()
-    #
-    # driverService = Service(path=driverPath)
-    driver = Chrome()  # service=driverService)
+    driverManager = ChromeDriverManager()
+    driverPath = driverManager.install()
+    driver = Chrome(service=ChromeService(driverPath))
     return driver
 
 
@@ -55,7 +54,7 @@ def Main():
     for Type in ProviderList:
         ProductList = ProviderList[Type]
 
-        Provider: HPWarrantyProvider = ProviderType[Type](driver)
+        Provider: WarrantyProvider = ProviderType[Type](driver)
         SplitLists = []
 
         productList = list(ProductList.items())
